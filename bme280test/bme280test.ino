@@ -1,77 +1,85 @@
 /* -*- mode:c -*- */
-/***************************************************************************
-  This is a library for the BME280 humidity, temperature & pressure sensor
 
-  Designed specifically to work with the Adafruit BME280 Breakout
-  ----> http://www.adafruit.com/products/2650
-
-  These sensors use I2C or SPI to communicate, 2 or 4 pins are required
-  to interface. The device's I2C address is either 0x76 or 0x77.
-
-  Adafruit invests time and resources providing this open source code,
-  please support Adafruit andopen-source hardware by purchasing products
-  from Adafruit!
-
-  Written by Limor Fried & Kevin Townsend for Adafruit Industries.
-  BSD license, all text above must be included in any redistribution
- ***************************************************************************/
-
-//#include <Wire.h>
-//#include <SPI.h>
-//#include <Adafruit_Sensor.h>
+/* Need to use Adafruit_Sensors and Adafruit_BME280 libraries. */
 #include <Adafruit_BME280.h>
+/* Needs LowPower library to put controller to sleep. */
+#include <LowPower.h>
 
-//#define BME_SCK 13
-//#define BME_MISO 12
-//#define BME_MOSI 11
-//#define BME_CS 10
 
-//#define SEALEVELPRESSURE_HPA (1013.25)
+/* Seems to depend on sensor module if it is 0x76 or 0x77. */
+#define BME280_ADDR 0x76
 
-Adafruit_BME280 bme; // I2C
+/* Use values from LowPower.h */
+#define SLEEP_TIME SLEEP_4S
 
-unsigned long delayTime;
+
+typedef struct {
+    float temp;
+    float hum;
+    float pres;
+} SensorValues_T;
+
+
+/* Sensor instance. */
+Adafruit_BME280 bme; 
+
+
+/**
+ * Read the sensor values.
+ */
+SensorValues_T getValues() {
+    SensorValues_T values;
+    
+    values.temp = bme.readTemperature();
+    values.pres = bme.readPressure() / 100.0f;
+    values.hum = bme.readHumidity();
+
+    return values;
+}
+
+
+/**
+ * Print result on serial interface.
+ */
+void printValues() {
+    SensorValues_T values;
+
+    values = getValues();
+
+    Serial.print("{\"temperature\": ");
+    Serial.print(values.temp);
+    Serial.print(", \"pressure\": ");
+    Serial.print(values.pres);
+    Serial.print(", \"humidity\": ");
+    Serial.print(values.hum);
+    Serial.println("}");
+}
+
 
 void setup() {
-    Serial.begin(9600);
-    Serial.println(F("BME280 test"));
-
     bool status;
-    
-    // default settings
-    status = bme.begin(0x76);
+
+    Serial.begin(38400);
+
+    status = bme.begin(BME280_ADDR);
     if (!status) {
-        Serial.println("Could not find a valid BME280 sensor, check wiring!");
+        Serial.println("{\"error\": \"Sensor not found.\"}");
         while (1);
     }
-    
-    Serial.println("-- Default Test --");
-    delayTime = 1000;
 
-    Serial.println();
+    /* Read first time to discard invalid values. */
+    getValues();
 }
 
 
 void loop() { 
     printValues();
-    delay(delayTime);
+
+    /* Wait a bit before power-down, to have time to send out serial data. */
+    delay(50);
+    LowPower.powerDown(SLEEP_4S, ADC_OFF, BOD_OFF);
 }
 
 
-void printValues() {
-    float temp, pres, hum;
-    
-    temp = bme.readTemperature();
-    pres = bme.readPressure() / 100.0f;
-    hum = bme.readHumidity();
 
-    Serial.print("{\"temperature\": ");
-    Serial.print(temp);
-    Serial.print(", \"pressure\": ");
-    Serial.print(pres);
-    Serial.print(", \"humidity\": ");
-    Serial.print(hum);
-    Serial.println("}");
 
-    delay(10);
-}
