@@ -4,15 +4,6 @@ from matplotlib import pyplot as plt
 import json
 from cmdlapp import CmdlApp
 
-
-
-
-
-
-
-    
-    
-
 class BME280Plot(CmdlApp):
     def __init__(self):
         CmdlApp.__init__(self)
@@ -27,18 +18,21 @@ class BME280Plot(CmdlApp):
 
         self.pltdata = {
             't': {
-                'buffer': [25.0] * self.num_points,
+                'buffer': [None] * self.num_points,
                 'datakey': 'temperature',
+                'color': 'red',
             },
             
             'p': {
-                'buffer': [1000.0] * self.num_points,
+                'buffer': [None] * self.num_points,
                 'datakey': 'pressure',
+                'color': 'green',
             },
             
             'h': {
-                'buffer': [60.0] * self.num_points,
+                'buffer': [None] * self.num_points,
                 'datakey': 'humidity',
+                'color': 'blue'
             }
         }
         
@@ -57,11 +51,15 @@ class BME280Plot(CmdlApp):
         # set plot to animated
         plt.ion() 
     
-        f, axes = plt.subplots(3, 1)
+        f, axes = plt.subplots(
+            nrows=3,
+            ncols=1,
+            num='sensordata',
+            sharex=True)
         
         i = 0
         for k, v in self.pltdata.items():
-            v['line'], = axes[i].plot(v['buffer'])
+            v['line'], = axes[i].plot(v['buffer'], color=v['color'])
             axes[i].autoscale(enable=True, axis='y')
             axes[i].set_title(label=v['datakey'])
             v['line'].set_xdata(np.arange(self.num_points))
@@ -109,6 +107,10 @@ class BME280Plot(CmdlApp):
                 self.update_plot_data(data)
                 
             plt.pause(1)
+
+            # Exit when the figure window is closed.
+            if not plt.fignum_exists('sensordata'):
+                break
 
 
 if __name__ =='__main__':
