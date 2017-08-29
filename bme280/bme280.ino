@@ -1,7 +1,7 @@
 /* -*- mode:c -*- */
 
 /* Need to use Adafruit_Sensors and Adafruit_BME280 libraries. */
-#include <Adafruit_BME280.h>
+#include "bme280.h"
 /* Need LowPower library to put controller to sleep. */
 //#include <LowPower.h>
 #include "json_helper.h"
@@ -14,52 +14,14 @@
 /* Use values from LowPower.h */
 #define SLEEP_TIME SLEEP_4S
 
-#define EEP_EXTREMES_ADDR 0
-
-typedef struct {
-    float temp;
-    float hum;
-    float pres;
-} SensorValues_T;
-
 /* Sensor instance. */
-static Adafruit_BME280 bme; 
-
-/**
- * Read the sensor values.
- *
- * Takes ca. 4 to 6ms on 8MHz Pro Micro.
- */
-void getValues(SensorValues_T *values) {
-    values->temp = bme.readTemperature();
-    values->pres = bme.readPressure() / 100.0f;
-    values->hum = bme.readHumidity();
-}
-
-
-/**
- * Print result on serial interface.
- */
-void printValues(SensorValues_T *values)
-{
-    JSON_DICT_START;
-    JSON_DICT_FLOAT("t", values->temp);
-    JSON_SEP;
-    JSON_DICT_FLOAT("p", values->pres);
-    JSON_SEP;
-    JSON_DICT_FLOAT("h", values->hum);
-    JSON_DICT_END;
-}
+static BME280 bme; 
 
 
 void setup() {
-    bool status;
-    SensorValues_T values;
-
     Serial.begin(38400);
 
-    status = bme.begin(BME280_ADDR);
-    if (!status) {
+    if (!bme.begin(BME280_ADDR)) {
         JSON_DICT_START;
         JSON_DICT_STR("error", "Sensor not found");
         JSON_DICT_END;
@@ -68,24 +30,29 @@ void setup() {
     }
 
     bme.setSampling(
-        Adafruit_BME280::MODE_NORMAL,  /* operation mode */
-        Adafruit_BME280::SAMPLING_X16, /* temp */
-        Adafruit_BME280::SAMPLING_X16, /* pres */
-        Adafruit_BME280::SAMPLING_X16, /* hum */
-        Adafruit_BME280::FILTER_X4,    /* pres filter */
-        Adafruit_BME280::STANDBY_MS_0_5);
+        BME280::MODE_NORMAL,  /* operation mode */
+        BME280::SAMPLING_X16, /* temp */
+        BME280::SAMPLING_X16, /* pres */
+        BME280::SAMPLING_X16, /* hum */
+        BME280::FILTER_X4,    /* pres filter */
+        BME280::STANDBY_MS_0_5);
 
     /* Read first time to discard invalid values. */
-    getValues(&values);
+    bme.sample();
 }
 
 
 void loop() {
-    SensorValues_T values;
+    bme.sample();
 
-    getValues(&values);
-    printValues(&values);
-
+    JSON_DICT_START;
+    JSON_DICT_FLOAT("t", bme.getTemperature());
+    JSON_SEP;
+    JSON_DICT_FLOAT("p", bme.getPressure());
+    JSON_SEP;
+    JSON_DICT_FLOAT("h", bme.getHumidity());
+    JSON_DICT_END;
+    
     /* Wait before power-down to send out serial data. */
     Serial.flush();
     
