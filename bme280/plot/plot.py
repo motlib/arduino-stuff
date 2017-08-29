@@ -19,19 +19,19 @@ class BME280Plot(CmdlApp):
         self.pltdata = {
             't': {
                 'buffer': [None] * self.num_points,
-                'datakey': 'temperature',
+                'datakey': 't',
                 'color': 'red',
             },
             
             'p': {
                 'buffer': [None] * self.num_points,
-                'datakey': 'pressure',
+                'datakey': 'p',
                 'color': 'green',
             },
             
             'h': {
                 'buffer': [None] * self.num_points,
-                'datakey': 'humidity',
+                'datakey': 'h',
                 'color': 'blue'
             }
         }
