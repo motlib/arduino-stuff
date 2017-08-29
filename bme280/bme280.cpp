@@ -18,18 +18,11 @@
 #include <Wire.h>
 #include "bme280.h"
 
-
-/***************************************************************************
- PRIVATE FUNCTIONS
- ***************************************************************************/
-BME280::BME280()
-{
-    
-}
-
-
 /**
- * @brief  Initialise sensor with given parameters / settings.
+ * Initialise sensor with given parameters / settings.
+ * 
+ * @param addr The I2C sensor address to use. The sensor can be configured for
+ *   0x76 or 0x77.
  */
 bool BME280::begin(uint8_t addr)
 {
@@ -109,11 +102,9 @@ void BME280::write8(byte reg, byte value)
 }
 
 
-/**************************************************************************/
-/*!
-    @brief  Reads an 8 bit value over I2C or SPI
-*/
-/**************************************************************************/
+/**
+ * @brief Reads an 8 bit value over I2C or SPI
+ */
 uint8_t BME280::read8(byte reg) {
     uint8_t value;
     
@@ -127,11 +118,9 @@ uint8_t BME280::read8(byte reg) {
 }
 
 
-/**************************************************************************/
-/*!
-    @brief  Reads a 16 bit value over I2C or SPI
-*/
-/**************************************************************************/
+/**
+ * @brief Reads a 16 bit value over I2C or SPI
+ */
 uint16_t BME280::read16(byte reg)
 {
     uint16_t value;
@@ -146,44 +135,30 @@ uint16_t BME280::read16(byte reg)
 }
 
 
-/**************************************************************************/
-/*!
-    
-*/
-/**************************************************************************/
 uint16_t BME280::read16_LE(byte reg) {
     uint16_t temp = read16(reg);
     return (temp >> 8) | (temp << 8);
 }
 
 
-/**************************************************************************/
-/*!
-    @brief  Reads a signed 16 bit value over I2C or SPI
-*/
-/**************************************************************************/
+/**
+ * @brief Reads a signed 16 bit value over I2C.
+ */
 int16_t BME280::readS16(byte reg)
 {
     return (int16_t)read16(reg);
 }
 
 
-/**************************************************************************/
-/*!
-   
-*/
-/**************************************************************************/
 int16_t BME280::readS16_LE(byte reg)
 {
     return (int16_t)read16_LE(reg);
 }
 
 
-/**************************************************************************/
-/*!
-    @brief  Reads a 24 bit value over I2C
-*/
-/**************************************************************************/
+/**
+ * @brief  Reads a 24 bit value over I2C
+ */
 uint32_t BME280::read24(byte reg)
 {
     uint32_t value;
@@ -225,11 +200,9 @@ void BME280::takeForcedMeasurement()
 }
 
 
-/**************************************************************************/
-/*!
-    @brief  Reads the factory-set coefficients
-*/
-/**************************************************************************/
+/**
+ * @brief Reads the factory-set coefficients
+ */
 void BME280::readCoefficients(void)
 {
     _bme280_calib.dig_T1 = read16_LE(BME280_REGISTER_DIG_T1);
@@ -249,16 +222,19 @@ void BME280::readCoefficients(void)
     _bme280_calib.dig_H1 = read8(BME280_REGISTER_DIG_H1);
     _bme280_calib.dig_H2 = readS16_LE(BME280_REGISTER_DIG_H2);
     _bme280_calib.dig_H3 = read8(BME280_REGISTER_DIG_H3);
-    _bme280_calib.dig_H4 = (read8(BME280_REGISTER_DIG_H4) << 4) | (read8(BME280_REGISTER_DIG_H4+1) & 0xF);
-    _bme280_calib.dig_H5 = (read8(BME280_REGISTER_DIG_H5+1) << 4) | (read8(BME280_REGISTER_DIG_H5) >> 4);
+    _bme280_calib.dig_H4 = (read8(BME280_REGISTER_DIG_H4) << 4)
+        | (read8(BME280_REGISTER_DIG_H4+1) & 0xF);
+    _bme280_calib.dig_H5 = (read8(BME280_REGISTER_DIG_H5+1) << 4)
+        | (read8(BME280_REGISTER_DIG_H5) >> 4);
     _bme280_calib.dig_H6 = (int8_t)read8(BME280_REGISTER_DIG_H6);
 }
 
-/**************************************************************************/
-/*!
-    @brief return true if chip is busy reading cal data
-*/
-/**************************************************************************/
+
+/**
+ * Check if the chip is busy reading the calibration data.
+ *
+ * @returns True if the chip is currently loading its calibration data.
+ */
 bool BME280::isReadingCalibration(void)
 {
   uint8_t const rStatus = read8(BME280_REGISTER_STATUS);
@@ -267,11 +243,9 @@ bool BME280::isReadingCalibration(void)
 }
 
 
-/**************************************************************************/
-/*!
-    @brief  Returns the temperature from the sensor
-*/
-/**************************************************************************/
+/**
+ * Read the temperature value from the sensor.
+ */
 void BME280::readTemperature(void)
 {
     int32_t var1, var2;
@@ -299,11 +273,12 @@ void BME280::readTemperature(void)
 }
 
 
-/**************************************************************************/
-/*!
-    @brief  Returns the temperature from the sensor
-*/
-/**************************************************************************/
+/**
+ * Read the pressure from the sensor.
+ *
+ * @pre This function depends on the reading of the temperature sensor, so
+ *   readTemperature() must be called before calling this function.
+ */
 void BME280::readPressure(void)
 {
     int64_t var1, var2, p;
@@ -328,7 +303,7 @@ void BME280::readPressure(void)
 
     if (var1 == 0)
     {
-        // avoid exception caused by division by zero
+        /* avoid exception caused by division by zero */
         _pres = 0.0; 
         return;
     }
@@ -345,7 +320,10 @@ void BME280::readPressure(void)
 
 
 /**
- * Returns the humidity from the sensor
+ * Reads the humidity from the sensor. 
+ * 
+ * @pre This function depends on the reading of the temperature sensor, so
+ *   readTemperature() must be called before calling this function.
  */
 void BME280::readHumidity(void)
 {
@@ -377,18 +355,42 @@ void BME280::readHumidity(void)
 }
 
 
+/**
+ * The last sampled temperature reading from the sensor. 
+ * 
+ * Call sample() to actually read the sensor before calling this function.
+ */
 float BME280::getTemperature(void) {
     return _temp;
 }
 
+
+/**
+ * The last sampled pressure reading from the sensor. 
+ * 
+ * Call sample() to actually read the sensor before calling this function.
+ */
 float BME280::getPressure(void) {
     return _pres;
 }
 
+
+/**
+ * The last sampled humidity reading from the sensor. 
+ * 
+ * Call sample() to actually read the sensor before calling this function.
+ */
 float BME280::getHumidity(void) {
     return _hum;
 }
 
+
+/**
+ * Sample all sensor values from the sensor.
+ * 
+ * After calling this function, you can retrieve the sensor values by calling
+ * getTemperature(), getHumidity() and getPressure().
+ */
 void BME280::sample(void) {
     readTemperature();
     readPressure();

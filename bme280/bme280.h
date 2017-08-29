@@ -25,11 +25,10 @@
 
 #include <Wire.h>
 
-/*=========================================================================
-    I2C ADDRESS/BITS
-    -----------------------------------------------------------------------*/
+/**
+ * Default I2C sensor address.
+ */
 #define BME280_ADDRESS                (0x77)
-/*=========================================================================*/
 
 /*=========================================================================
     REGISTERS
@@ -140,9 +139,6 @@ class BME280 {
             STANDBY_MS_1000 = 0b101
         };
     
-        // constructors
-        BME280(void);
-        
         bool begin(uint8_t addr = BME280_ADDRESS);
 
 	void setSampling(sensor_mode mode              = MODE_NORMAL,

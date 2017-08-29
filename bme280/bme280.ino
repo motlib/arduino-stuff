@@ -43,8 +43,10 @@ void setup() {
 
 
 void loop() {
+    /* Read sensor. */
     bme.sample();
 
+    /* Output of results. */
     JSON_DICT_START;
     JSON_DICT_FLOAT("t", bme.getTemperature());
     JSON_SEP;
