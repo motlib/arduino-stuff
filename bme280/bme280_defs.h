@@ -2,6 +2,15 @@
 #define BME280_DEFS_H
 
 
+#define BME280_CHIP_ID 0x60
+
+#define BME280_RESET_CMD 0xB6
+
+#define BME280_WAKEUP_TIME_MS 300
+
+#define BME280_CAL_READ_WAIT_MS 100
+
+
 /* Register defines */
 
 #define BME280_REGISTER_DIG_T1 0x88

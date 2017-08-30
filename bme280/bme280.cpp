@@ -1,7 +1,7 @@
 /**
- * 
+ *
  * @file
- * 
+ *
  * This is a library for the BME280 humidity, temperature and pressure
  * sensor. It is based on the BM280 library by Adafruit.
  *
@@ -18,46 +18,47 @@ BME280::BME280(I2CWireWrap *dev)
 
 
 /**
- * Initialise sensor with given parameters / settings.
- * 
- * @param addr The I2C sensor address to use. The sensor can be configured for
- *   0x76 or 0x77.
+ * Initialise the sensor.
+ *
+ * This reads the chip id and the calibration data from the sensor. If reading
+ * the chip ID does not return the expected value BME280_CHIP_ID, the function
+ * returns false.
  */
 bool BME280::begin()
 {
     // check if sensor, i.e. the chip ID is correct
-    if (_dev->read8(BME280_REGISTER_CHIPID) != 0x60)
+    if (_dev->read8(BME280_REGISTER_CHIPID) != BME280_CHIP_ID)
     {
         return false;
     }
 
     /* Reset the device using soft-reset. This makes sure the IIR is off,
      * etc. */
-    _dev->write8(BME280_REGISTER_SOFTRESET, 0xB6);
+    _dev->write8(BME280_REGISTER_SOFTRESET, BME280_RESET_CMD);
 
     /* Wait for chip to wake up. */
-    delay(300);
+    delay(BME280_WAKEUP_TIME_MS);
 
     /* If chip is still reading calibration, delay. */
     while (isReadingCalibration())
     {
-          delay(100);
+          delay(BME280_CAL_READ_WAIT_MS);
     }
 
     /* Read trimming parameters, see DS 4.2.2. */
-    readCoefficients(); 
+    readCoefficients();
 
     /* Use default sampling configuration. */
-    setSampling(); 
+    setSampling();
 
     return true;
 }
 
 
 /**
- * @brief Setup sensor with given parameters / settings. 
- * 
- *  
+ * @brief Setup sensor with given parameters / settings.
+ *
+ *
  * This is simply a overload to the normal begin()-function, so SPI users don't
  * get confused about the library requiring an address.
  */
@@ -70,12 +71,12 @@ void BME280::setSampling(sensor_mode       mode,
     _measReg.mode     = mode;
     _measReg.osrs_t   = tempSampling;
     _measReg.osrs_p   = pressSampling;
-        
-    
+
+
     _humReg.osrs_h    = humSampling;
     _configReg.filter = filter;
     _configReg.t_sb   = duration;
- 
+
     /* You must make sure to also set REGISTER_CONTROL after setting the
      * CONTROLHUMID register, otherwise the values won't be applied (see DS
      * 5.4.3) */
@@ -91,7 +92,7 @@ void BME280::setSampling(sensor_mode       mode,
 */
 /**************************************************************************/
 void BME280::takeForcedMeasurement()
-{   
+{
     // If we are in forced mode, the BME sensor goes back to sleep after each
     // measurement and we need to set it to forced mode once at this point, so
     // it will take the next measurement and then return to sleep again.
@@ -164,12 +165,12 @@ void BME280::readTemperature(void)
         _temp = NAN;
         return;
     }
-    
+
     adc_T >>= 4;
 
     var1 = ((((adc_T>>3) - ((int32_t)_bme280_calib.dig_T1 <<1))) *
             ((int32_t)_bme280_calib.dig_T2)) >> 11;
-             
+
     var2 = (((((adc_T>>4) - ((int32_t)_bme280_calib.dig_T1)) *
               ((adc_T>>4) - ((int32_t)_bme280_calib.dig_T1))) >> 12) *
             ((int32_t)_bme280_calib.dig_T3)) >> 14;
@@ -197,7 +198,7 @@ void BME280::readPressure(void)
         _pres = NAN;
         return;
     }
-    
+
     adc_P >>= 4;
 
     var1 = ((int64_t)t_fine) - 128000;
@@ -211,24 +212,24 @@ void BME280::readPressure(void)
     if (var1 == 0)
     {
         /* avoid exception caused by division by zero */
-        _pres = 0.0; 
+        _pres = 0.0;
         return;
     }
-    
+
     p = 1048576 - adc_P;
     p = (((p<<31) - var2)*3125) / var1;
     var1 = (((int64_t)_bme280_calib.dig_P9) * (p>>13) * (p>>13)) >> 25;
     var2 = (((int64_t)_bme280_calib.dig_P8) * p) >> 19;
 
     p = ((p + var1 + var2) >> 8) + (((int64_t)_bme280_calib.dig_P7)<<4);
-    
+
     _pres = (float)(p / 256) / 100.0;
 }
 
 
 /**
- * Reads the humidity from the sensor. 
- * 
+ * Reads the humidity from the sensor.
+ *
  * @pre This function depends on the reading of the temperature sensor, so
  *   readTemperature() must be called before calling this function.
  */
@@ -241,7 +242,7 @@ void BME280::readHumidity(void)
         _hum = NAN;
         return;
     }
-        
+
     int32_t v_x1_u32r;
 
     v_x1_u32r = (t_fine - ((int32_t)76800));
@@ -257,14 +258,14 @@ void BME280::readHumidity(void)
 
     v_x1_u32r = (v_x1_u32r < 0) ? 0 : v_x1_u32r;
     v_x1_u32r = (v_x1_u32r > 419430400) ? 419430400 : v_x1_u32r;
-    
+
     _hum = (v_x1_u32r >> 12) / 1024.0;
 }
 
 
 /**
- * The last sampled temperature reading from the sensor. 
- * 
+ * The last sampled temperature reading from the sensor.
+ *
  * Call sample() to actually read the sensor before calling this function.
  */
 float BME280::getTemperature(void) {
@@ -273,8 +274,8 @@ float BME280::getTemperature(void) {
 
 
 /**
- * The last sampled pressure reading from the sensor. 
- * 
+ * The last sampled pressure reading from the sensor.
+ *
  * Call sample() to actually read the sensor before calling this function.
  */
 float BME280::getPressure(void) {
@@ -283,8 +284,8 @@ float BME280::getPressure(void) {
 
 
 /**
- * The last sampled humidity reading from the sensor. 
- * 
+ * The last sampled humidity reading from the sensor.
+ *
  * Call sample() to actually read the sensor before calling this function.
  */
 float BME280::getHumidity(void) {
@@ -294,7 +295,7 @@ float BME280::getHumidity(void) {
 
 /**
  * Sample all sensor values from the sensor.
- * 
+ *
  * After calling this function, you can retrieve the sensor values by calling
  * getTemperature(), getHumidity() and getPressure().
  */
