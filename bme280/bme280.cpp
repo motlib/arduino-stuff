@@ -1,22 +1,21 @@
-/***************************************************************************
-  This is a library for the BME280 humidity, temperature & pressure sensor
+/**
+ * 
+ * @file
+ * 
+ * This is a library for the BME280 humidity, temperature and pressure
+ * sensor. It is based on the BM280 library by Adafruit.
+ *
+ * The library is simplified, so it uses less resources (time- and memory-wise).
+ */
 
-  Designed specifically to work with the Adafruit BME280 Breakout
-  ----> http://www.adafruit.com/products/2650
-
-  These sensors use I2C or SPI to communicate, 2 or 4 pins are required
-  to interface.
-
-  Adafruit invests time and resources providing this open source code,
-  please support Adafruit andopen-source hardware by purchasing products
-  from Adafruit!
-
-  Written by Limor Fried & Kevin Townsend for Adafruit Industries.
-  BSD license, all text above must be included in any redistribution
- ***************************************************************************/
-#include "Arduino.h"
-#include <Wire.h>
 #include "bme280.h"
+
+
+BME280::BME280(I2CWireWrap *dev)
+{
+    _dev = dev;
+}
+
 
 /**
  * Initialise sensor with given parameters / settings.
@@ -24,21 +23,17 @@
  * @param addr The I2C sensor address to use. The sensor can be configured for
  *   0x76 or 0x77.
  */
-bool BME280::begin(uint8_t addr)
+bool BME280::begin()
 {
-    _i2caddr = addr;
-
-    Wire.begin();
-
     // check if sensor, i.e. the chip ID is correct
-    if (read8(BME280_REGISTER_CHIPID) != 0x60)
+    if (_dev->read8(BME280_REGISTER_CHIPID) != 0x60)
     {
         return false;
     }
 
     /* Reset the device using soft-reset. This makes sure the IIR is off,
      * etc. */
-    write8(BME280_REGISTER_SOFTRESET, 0xB6);
+    _dev->write8(BME280_REGISTER_SOFTRESET, 0xB6);
 
     /* Wait for chip to wake up. */
     delay(300);
@@ -84,97 +79,9 @@ void BME280::setSampling(sensor_mode       mode,
     /* You must make sure to also set REGISTER_CONTROL after setting the
      * CONTROLHUMID register, otherwise the values won't be applied (see DS
      * 5.4.3) */
-    write8(BME280_REGISTER_CONTROLHUMID, _humReg.get());
-    write8(BME280_REGISTER_CONFIG, _configReg.get());
-    write8(BME280_REGISTER_CONTROL, _measReg.get());
-}
-
-
-/**
- * @brief Writes an 8 bit value over I2C or SPI. 
- */
-void BME280::write8(byte reg, byte value)
-{
-    Wire.beginTransmission((uint8_t)_i2caddr);
-    Wire.write((uint8_t)reg);
-    Wire.write((uint8_t)value);
-    Wire.endTransmission();
-}
-
-
-/**
- * @brief Reads an 8 bit value over I2C or SPI
- */
-uint8_t BME280::read8(byte reg) {
-    uint8_t value;
-    
-    Wire.beginTransmission((uint8_t)_i2caddr);
-    Wire.write((uint8_t)reg);
-    Wire.endTransmission();
-    Wire.requestFrom((uint8_t)_i2caddr, (byte)1);
-    value = Wire.read();
-    
-    return value;
-}
-
-
-/**
- * @brief Reads a 16 bit value over I2C or SPI
- */
-uint16_t BME280::read16(byte reg)
-{
-    uint16_t value;
-
-    Wire.beginTransmission((uint8_t)_i2caddr);
-    Wire.write((uint8_t)reg);
-    Wire.endTransmission();
-    Wire.requestFrom((uint8_t)_i2caddr, (byte)2);
-    value = (Wire.read() << 8) | Wire.read();
-
-    return value;
-}
-
-
-uint16_t BME280::read16_LE(byte reg) {
-    uint16_t temp = read16(reg);
-    return (temp >> 8) | (temp << 8);
-}
-
-
-/**
- * @brief Reads a signed 16 bit value over I2C.
- */
-int16_t BME280::readS16(byte reg)
-{
-    return (int16_t)read16(reg);
-}
-
-
-int16_t BME280::readS16_LE(byte reg)
-{
-    return (int16_t)read16_LE(reg);
-}
-
-
-/**
- * @brief  Reads a 24 bit value over I2C
- */
-uint32_t BME280::read24(byte reg)
-{
-    uint32_t value;
-
-    Wire.beginTransmission((uint8_t)_i2caddr);
-    Wire.write((uint8_t)reg);
-    Wire.endTransmission();
-    Wire.requestFrom((uint8_t)_i2caddr, (byte)3);
-
-    value = Wire.read();
-    value <<= 8;
-    value |= Wire.read();
-    value <<= 8;
-    value |= Wire.read();
-
-    return value;
+    _dev->write8(BME280_REGISTER_CONTROLHUMID, _humReg.get());
+    _dev->write8(BME280_REGISTER_CONFIG, _configReg.get());
+    _dev->write8(BME280_REGISTER_CONTROL, _measReg.get());
 }
 
 
@@ -191,11 +98,13 @@ void BME280::takeForcedMeasurement()
     // In normal mode simply does new measurements periodically.
     if (_measReg.mode == MODE_FORCED) {
         // set to forced mode, i.e. "take next measurement"
-        write8(BME280_REGISTER_CONTROL, _measReg.get());
+        _dev->write8(BME280_REGISTER_CONTROL, _measReg.get());
         // wait until measurement has been completed, otherwise we would read
         // the values from the last measurement
-        while (read8(BME280_REGISTER_STATUS) & 0x08)
-		delay(1);
+        while(_dev->read8(BME280_REGISTER_STATUS) & 0x08)
+        {
+            delay(1);
+        }
     }
 }
 
@@ -205,28 +114,26 @@ void BME280::takeForcedMeasurement()
  */
 void BME280::readCoefficients(void)
 {
-    _bme280_calib.dig_T1 = read16_LE(BME280_REGISTER_DIG_T1);
-    _bme280_calib.dig_T2 = readS16_LE(BME280_REGISTER_DIG_T2);
-    _bme280_calib.dig_T3 = readS16_LE(BME280_REGISTER_DIG_T3);
-
-    _bme280_calib.dig_P1 = read16_LE(BME280_REGISTER_DIG_P1);
-    _bme280_calib.dig_P2 = readS16_LE(BME280_REGISTER_DIG_P2);
-    _bme280_calib.dig_P3 = readS16_LE(BME280_REGISTER_DIG_P3);
-    _bme280_calib.dig_P4 = readS16_LE(BME280_REGISTER_DIG_P4);
-    _bme280_calib.dig_P5 = readS16_LE(BME280_REGISTER_DIG_P5);
-    _bme280_calib.dig_P6 = readS16_LE(BME280_REGISTER_DIG_P6);
-    _bme280_calib.dig_P7 = readS16_LE(BME280_REGISTER_DIG_P7);
-    _bme280_calib.dig_P8 = readS16_LE(BME280_REGISTER_DIG_P8);
-    _bme280_calib.dig_P9 = readS16_LE(BME280_REGISTER_DIG_P9);
-
-    _bme280_calib.dig_H1 = read8(BME280_REGISTER_DIG_H1);
-    _bme280_calib.dig_H2 = readS16_LE(BME280_REGISTER_DIG_H2);
-    _bme280_calib.dig_H3 = read8(BME280_REGISTER_DIG_H3);
-    _bme280_calib.dig_H4 = (read8(BME280_REGISTER_DIG_H4) << 4)
-        | (read8(BME280_REGISTER_DIG_H4+1) & 0xF);
-    _bme280_calib.dig_H5 = (read8(BME280_REGISTER_DIG_H5+1) << 4)
-        | (read8(BME280_REGISTER_DIG_H5) >> 4);
-    _bme280_calib.dig_H6 = (int8_t)read8(BME280_REGISTER_DIG_H6);
+    _bme280_calib.dig_T1 = _dev->read16_LE(BME280_REGISTER_DIG_T1);
+    _bme280_calib.dig_T2 = _dev->readS16_LE(BME280_REGISTER_DIG_T2);
+    _bme280_calib.dig_T3 = _dev->readS16_LE(BME280_REGISTER_DIG_T3);
+    _bme280_calib.dig_P1 = _dev->read16_LE(BME280_REGISTER_DIG_P1);
+    _bme280_calib.dig_P2 = _dev->readS16_LE(BME280_REGISTER_DIG_P2);
+    _bme280_calib.dig_P3 = _dev->readS16_LE(BME280_REGISTER_DIG_P3);
+    _bme280_calib.dig_P4 = _dev->readS16_LE(BME280_REGISTER_DIG_P4);
+    _bme280_calib.dig_P5 = _dev->readS16_LE(BME280_REGISTER_DIG_P5);
+    _bme280_calib.dig_P6 = _dev->readS16_LE(BME280_REGISTER_DIG_P6);
+    _bme280_calib.dig_P7 = _dev->readS16_LE(BME280_REGISTER_DIG_P7);
+    _bme280_calib.dig_P8 = _dev->readS16_LE(BME280_REGISTER_DIG_P8);
+    _bme280_calib.dig_P9 = _dev->readS16_LE(BME280_REGISTER_DIG_P9);
+    _bme280_calib.dig_H1 = _dev->read8(BME280_REGISTER_DIG_H1);
+    _bme280_calib.dig_H2 = _dev->readS16_LE(BME280_REGISTER_DIG_H2);
+    _bme280_calib.dig_H3 = _dev->read8(BME280_REGISTER_DIG_H3);
+    _bme280_calib.dig_H4 = (_dev->read8(BME280_REGISTER_DIG_H4) << 4)
+        | (_dev->read8(BME280_REGISTER_DIG_H4+1) & 0xF);
+    _bme280_calib.dig_H5 = (_dev->read8(BME280_REGISTER_DIG_H5+1) << 4)
+        | (_dev->read8(BME280_REGISTER_DIG_H5) >> 4);
+    _bme280_calib.dig_H6 = (int8_t)_dev->read8(BME280_REGISTER_DIG_H6);
 }
 
 
@@ -237,7 +144,7 @@ void BME280::readCoefficients(void)
  */
 bool BME280::isReadingCalibration(void)
 {
-  uint8_t const rStatus = read8(BME280_REGISTER_STATUS);
+  uint8_t const rStatus = _dev->read8(BME280_REGISTER_STATUS);
 
   return (rStatus & (1 << 0)) != 0;
 }
@@ -250,7 +157,7 @@ void BME280::readTemperature(void)
 {
     int32_t var1, var2;
 
-    int32_t adc_T = read24(BME280_REGISTER_TEMPDATA);
+    int32_t adc_T = _dev->read24(BME280_REGISTER_TEMPDATA);
     if (adc_T == 0x800000)
     {
         // value in case temp measurement was disabled
@@ -283,7 +190,7 @@ void BME280::readPressure(void)
 {
     int64_t var1, var2, p;
 
-    int32_t adc_P = read24(BME280_REGISTER_PRESSUREDATA);
+    int32_t adc_P = _dev->read24(BME280_REGISTER_PRESSUREDATA);
     if (adc_P == 0x800000)
     {
         // value in case pressure measurement was disabled
@@ -327,7 +234,7 @@ void BME280::readPressure(void)
  */
 void BME280::readHumidity(void)
 {
-    int32_t adc_H = read16(BME280_REGISTER_HUMIDDATA);
+    int32_t adc_H = _dev->read16(BME280_REGISTER_HUMIDDATA);
     if (adc_H == 0x8000)
     {
         // value in case humidity measurement was disabled

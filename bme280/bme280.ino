@@ -14,14 +14,17 @@
 /* Use values from LowPower.h */
 #define SLEEP_TIME SLEEP_4S
 
+static I2CWireWrap dev(BME280_ADDR);
+
 /* Sensor instance. */
-static BME280 bme; 
+static BME280 bme(&dev); 
 
 
 void setup() {
     Serial.begin(38400);
+    dev.begin();
 
-    if (!bme.begin(BME280_ADDR)) {
+    if (!bme.begin()) {
         JSON_DICT_START;
         JSON_DICT_STR("error", "Sensor not found");
         JSON_DICT_END;
