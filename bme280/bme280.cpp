@@ -17,13 +17,6 @@ BME280::BME280(I2CWireWrap *dev)
 }
 
 
-/**
- * Initialise the sensor.
- *
- * This reads the chip id and the calibration data from the sensor. If reading
- * the chip ID does not return the expected value BME280_CHIP_ID, the function
- * returns false.
- */
 bool BME280::begin()
 {
     // check if sensor, i.e. the chip ID is correct
