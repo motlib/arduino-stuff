@@ -2,16 +2,23 @@
 #define BME280_DEFS_H
 
 
+/** Chip ID to check when calling begin() function. */
 #define BME280_CHIP_ID 0x60
 
+/** Command to write to sensor for soft-reset. */
 #define BME280_RESET_CMD 0xB6
 
+/** Delay after soft-reset before calibration data is read. */
 #define BME280_WAKEUP_TIME_MS 300
 
+/** Delay in loop to poll for readiness of calibration data. */
 #define BME280_CAL_READ_WAIT_MS 100
 
+/** Number of loops to check for readiness of calibration data. */
+#define BME280_CAL_READ_TIMEOUT 10
 
-/* Register defines */
+
+/* Register address defines */
 
 #define BME280_REGISTER_DIG_T1 0x88
 #define BME280_REGISTER_DIG_T2 0x8A
@@ -50,29 +57,6 @@
 #define BME280_REGISTER_HUMIDDATA 0xFD
 
 
-typedef struct
-{
-    uint16_t dig_T1;
-    int16_t  dig_T2;
-    int16_t  dig_T3;
-
-    uint16_t dig_P1;
-    int16_t  dig_P2;
-    int16_t  dig_P3;
-    int16_t  dig_P4;
-    int16_t  dig_P5;
-    int16_t  dig_P6;
-    int16_t  dig_P7;
-    int16_t  dig_P8;
-    int16_t  dig_P9;
-
-    uint8_t  dig_H1;
-    int16_t  dig_H2;
-    uint8_t  dig_H3;
-    int16_t  dig_H4;
-    int16_t  dig_H5;
-    int8_t   dig_H6;
-} bme280_calib_data;
 
 
 #endif /* BME280_DEFS_H */

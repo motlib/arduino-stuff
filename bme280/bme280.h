@@ -4,9 +4,9 @@
 #define BME280_H
 
 #if (ARDUINO >= 100)
- #include "Arduino.h"
+#include "Arduino.h"
 #else
- #include "WProgram.h"
+#include "WProgram.h"
 #endif
 
 #include "wirewrap.h"
@@ -46,7 +46,7 @@ public:
         FILTER_X16 = 0b100
     };
     
-    /* standby durations in ms */
+    /** Standby durations in ms */
     enum standby_duration {
         STANDBY_MS_0_5  = 0b000,
         STANDBY_MS_10   = 0b110,
@@ -61,7 +61,7 @@ public:
     BME280(I2CWireWrap *dev);
     
     /**
-     * Initialise the sensor.
+     * Initialize the sensor.
      *
      * This reads the chip id and the calibration data from the sensor. If
      * reading the chip ID does not return the expected value BME280_CHIP_ID,
@@ -72,14 +72,17 @@ public:
     bool begin();
 
     
-    void setSampling(sensor_mode mode              = MODE_NORMAL,
-                     sensor_sampling tempSampling  = SAMPLING_X16,
-                     sensor_sampling pressSampling = SAMPLING_X16,
-                     sensor_sampling humSampling   = SAMPLING_X16,
-                     sensor_filter filter          = FILTER_OFF,
-                     standby_duration duration     = STANDBY_MS_0_5
-        );
-                   
+    /**
+     * Configure the sensor parameters.
+     */
+    void setSampling(
+        sensor_mode mode = MODE_NORMAL,
+        sensor_sampling tempSampling = SAMPLING_X16,
+        sensor_sampling pressSampling = SAMPLING_X16,
+        sensor_sampling humSampling = SAMPLING_X16,
+        sensor_filter filter = FILTER_OFF,
+        standby_duration duration = STANDBY_MS_0_5);
+    
     void takeForcedMeasurement();
     
     void sample();
@@ -94,17 +97,37 @@ private:
     void readPressure(void);
     void readHumidity(void);
     
-    uint8_t   _i2caddr;
-    int32_t   _sensorID;
-    int32_t   t_fine;
-    
-    float _temp;
-    float _pres;
-    float _hum;
+    int32_t _t_fine;
+    float _temp = NAN;
+    float _pres = NAN;
+    float _hum = NAN;
     
     I2CWireWrap *_dev;
-    
-    bme280_calib_data _bme280_calib;
+
+    typedef struct
+    {
+        uint16_t dig_T1;
+        int16_t  dig_T2;
+        int16_t  dig_T3;
+        
+        uint16_t dig_P1;
+        int16_t  dig_P2;
+        int16_t  dig_P3;
+        int16_t  dig_P4;
+        int16_t  dig_P5;
+        int16_t  dig_P6;
+        int16_t  dig_P7;
+        int16_t  dig_P8;
+        int16_t  dig_P9;
+        
+        uint8_t  dig_H1;
+        int16_t  dig_H2;
+        uint8_t  dig_H3;
+        int16_t  dig_H4;
+        int16_t  dig_H5;
+        int8_t   dig_H6;
+    } CalData;
+    CalData _cal;
     
     /** The config register type. */
     struct ConfigRegister
