@@ -66,7 +66,7 @@ uint32_t I2CWireWrap::read(uint8_t reg, uint8_t cnt)
     for(uint8_t i = 0; i < cnt; ++i)
     {
         value <<= 8;
-        value = Wire.read();
+        value |= (uint8_t)Wire.read();
     }
 
     return value;
