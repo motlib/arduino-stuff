@@ -23,6 +23,7 @@ typedef struct {
 typedef enum {
     DiagCmd_Read,
     DiagCmd_Write,
+    DiagCmd_Describe,
     DiagCmd_Invalid,
 } DiagCmd_T;
 
@@ -36,24 +37,8 @@ typedef struct {
 static DiagData_T ddata = { {0}, 0, DiagErr_Ok};
     
 
-typedef struct
-{
-    void* data;
-    uint8_t size;
-    uint8_t flags;
-    char name[20];
-} DiagItem_T;
-
-typedef struct
-{
-    DiagItem_T *items;
-    uint8_t size;
-    char name[20];
-} DiagSect_T;
-
-
 static DiagItem_T d_items[] = {
-    { &ddata.err, 1, 0, "Last Err" },
+    { &ddata.err, 1, DIAG_TYPE_INT, "Last Err" },
 };
 
 
@@ -64,6 +49,7 @@ static DiagSect_T d_sect = {
 };
 
 
+/* Table of all diag sections. */
 static DiagSect_T * dtbls[1] = {
     &d_sect,
 };
@@ -130,6 +116,10 @@ static void diag_parse_request(DiagReq_T *dreq)
     {
         dreq->cmd = DiagCmd_Write;
     }
+    else if(buf[0] =='d')
+    {
+        dreq->cmd = DiagCmd_Describe;
+    }
     else
     {
         dreq->cmd = DiagCmd_Invalid;
@@ -143,21 +133,41 @@ static void diag_parse_request(DiagReq_T *dreq)
     gettok(buf, &pos);
     dreq->id = (uint8_t)atoi(buf);
 
-    printf("Command %i, sec %i, id %i\n", dreq->cmd, dreq->sec, dreq->id);
+    //printf("Command %i, sec %i, id %i\n", dreq->cmd, dreq->sec, dreq->id);
 }
 
 static void diag_handle_read(DiagReq_T *dreq)
 {
-    printf("Now I would read.");
-
     DiagItem_T *item = diag_get_item(dreq);
-    if(item == NULL) {
-        printf("Could not get diag item.\n");
-    }
-    else
+    if(item == NULL)
     {
-        printf("Got diag item %s with len %i.\n", item->name, item->size);
+        printf("Could not get diag item.\n");
+        return;
     }
+
+    if(item->flags & DIAG_TYPE_INT) {
+        if(item->size == 1) {
+            uint8_t val = *((uint8_t*)item->data);
+            printf("Read value: %i\n", val);
+        }
+    }
+}
+
+static void diag_handle_describe(DiagReq_T *dreq)
+{
+    DiagItem_T *item = diag_get_item(dreq);
+    DiagSect_T *sect;
+    
+    if(item == NULL)
+    {
+        printf("Could not get diag item.\n");
+        return;
+    }
+
+    sect = dtbls[dreq->sec];
+
+    printf("Section %i (%i items): %s\n", dreq->sec, sect->size, sect->name);
+    printf("Item %i: %s\n", dreq->id, item->name);
 }
 
 void diag_handle(void)
@@ -166,9 +176,16 @@ void diag_handle(void)
 
     diag_parse_request(&dreq);
 
-    if(dreq.cmd == DiagCmd_Read)
+    switch(dreq.cmd)
     {
+    case DiagCmd_Read:
         diag_handle_read(&dreq);
+        break;
+    case DiagCmd_Describe:
+        diag_handle_describe(&dreq);
+        break;
+    default:
+        break;
     }
 
     /* After handling input, reset pos to 0. */
