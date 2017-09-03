@@ -1,17 +1,25 @@
 #include "diag.h"
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "json_helper.h"
+
 
 #define DIAG_IN_BUF_LEN 32
 
 #define DIAG_MAX_CMD_LEN 8
 
+/**
+ * Enumeration of diag handling errors.
+ */
 typedef enum
 {
     DiagErr_Ok,
     DiagErr_Ovflw,
     DiagErr_InvCmd,
+    DiagErr_NoItem,
 } DiagErr_T;
 
 typedef struct {
@@ -59,14 +67,13 @@ static void gettok(char *buf, uint8_t* pos)
 {
     uint8_t i = 0;
 
-    while((ddata.in[*pos + i] != ' ') && (ddata.in[*pos+i] != '\0'))
+    while(((*pos + i) < ddata.in_pos) && (ddata.in[*pos + i] != ' ') && (ddata.in[*pos+i] != '\0'))
     {
         buf[i] = ddata.in[*pos + i];
         i += 1;
     }
+    //FIXME: Pure hope that we do not overflow the buffer.
     buf[i] = '\0';
-
-    printf("token %s\n", buf);
     
     *pos += i + 1;
 }
@@ -107,7 +114,6 @@ static void diag_parse_request(DiagReq_T *dreq)
     ddata.in[ddata.in_pos] = 0;
     
     gettok(buf, &pos);
-    
     if(buf[0] == 'r')
     {
         dreq->cmd = DiagCmd_Read;
@@ -132,27 +138,34 @@ static void diag_parse_request(DiagReq_T *dreq)
 
     gettok(buf, &pos);
     dreq->id = (uint8_t)atoi(buf);
-
-    //printf("Command %i, sec %i, id %i\n", dreq->cmd, dreq->sec, dreq->id);
 }
 
+
+/**
+ * Handle the diagnostic read command.
+ */
 static void diag_handle_read(DiagReq_T *dreq)
 {
     DiagItem_T *item = diag_get_item(dreq);
     if(item == NULL)
     {
-        printf("Could not get diag item.\n");
+        ddata.err = DiagErr_NoItem;
         return;
     }
 
     if(item->flags & DIAG_TYPE_INT) {
         if(item->size == 1) {
             uint8_t val = *((uint8_t*)item->data);
-            printf("Read value: %i\n", val);
+            JSON_DICT_INT("v", val);
+            JSON_SEP;
         }
     }
 }
 
+
+/**
+ * Handle diagnostic describe command.
+ */
 static void diag_handle_describe(DiagReq_T *dreq)
 {
     DiagItem_T *item = diag_get_item(dreq);
@@ -160,22 +173,35 @@ static void diag_handle_describe(DiagReq_T *dreq)
     
     if(item == NULL)
     {
-        printf("Could not get diag item.\n");
+        ddata.err = DiagErr_NoItem;
         return;
     }
 
     sect = dtbls[dreq->sec];
 
-    printf("Section %i (%i items): %s\n", dreq->sec, sect->size, sect->name);
-    printf("Item %i: %s\n", dreq->id, item->name);
+    JSON_DICT_INT("sect", dreq->sec);
+    JSON_SEP;
+    JSON_DICT_INT("s_size", sect->size);
+    JSON_SEP;
+    JSON_DICT_STR("s_name", sect->name);
+    JSON_SEP;
+    JSON_DICT_INT("i_id", dreq->id);
+    JSON_SEP;
+    JSON_DICT_STR("i_name", item->name);
 }
 
+
+/**
+ * Handle a diagnostic request stored in the internal input buffer.
+ */
 void diag_handle(void)
 {
     DiagReq_T dreq = {DiagCmd_Invalid, 0, 0};
 
     diag_parse_request(&dreq);
 
+    JSON_DICT_START;
+    
     switch(dreq.cmd)
     {
     case DiagCmd_Read:
@@ -185,14 +211,21 @@ void diag_handle(void)
         diag_handle_describe(&dreq);
         break;
     default:
+        ddata.err = DiagErr_InvCmd;
         break;
     }
+
+    JSON_DICT_INT("s", ddata.err);
+    JSON_DICT_END;
 
     /* After handling input, reset pos to 0. */
     ddata.in_pos = 0;
 }
 
 
+/**
+ * Add a character to the input buffer.
+ */
 void diag_add_input_char(char c)
 {
     if(c == '\n') {
