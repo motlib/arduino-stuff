@@ -5,62 +5,103 @@
 #include <stdlib.h>
 
 #include "json_helper.h"
+#include "diag_cfg.h"
 
 
 #define DIAG_IN_BUF_LEN 32
 
 #define DIAG_MAX_CMD_LEN 8
 
+
+/**
+ * Diagnostic commands
+ */
+#define DIAG_CMD_READ 'r'
+#define DIAG_CMD_DESCRIBE 'd'
+#define DIAG_CMD_INVALID '-'
+
 /**
  * Enumeration of diag handling errors.
  */
 typedef enum
 {
+    /** Everything is ok. */
     DiagErr_Ok,
+    /** Input buffer overflow (input too long). */
     DiagErr_Ovflw,
+    /** Invalid command received. */
     DiagErr_InvCmd,
+    /** Invalid section or item accessed. */
     DiagErr_NoItem,
+    /** Invalid data type. */
+    DiagErr_InvalidType,
+    /** Diag config error. */
+    DiagErr_Cfg,
 } DiagErr_T;
 
-typedef struct {
+
+/**
+ * Structure of internal diagnostic data and state.
+ */
+typedef struct
+{
+    /** Input buffer */
     char in[DIAG_IN_BUF_LEN];
+    /** Next storage pos in input buffer. */
     uint8_t in_pos;
+    /** Global error status. */
     DiagErr_T err;
 } DiagData_T;
 
-typedef enum {
-    DiagCmd_Read,
-    DiagCmd_Write,
-    DiagCmd_Describe,
-    DiagCmd_Invalid,
-} DiagCmd_T;
 
+
+
+/**
+ * Diagnostic request data.
+ */
 typedef struct {
-    DiagCmd_T cmd;
+    /** Received command */
+    char cmd;
+    /** Section to acces */
     uint8_t sec;
+    /** Id to access */
     uint8_t id;
-    // no support for writing yet
 } DiagReq_T;
 
-static DiagData_T ddata = { {0}, 0, DiagErr_Ok};
+
+static DiagData_T ddata =
+{
+    /* Input buffer */
+    {0},
+    /* Input position */
+    0,
+    /* State of diagnostic module. */
+    DiagErr_Ok
+};
     
 
-static DiagItem_T d_items[] = {
+/*
+ * Item table for diagnostic items in diag module (self-diagnosis :-) ).
+ */
+static DiagItem_T d_items[] =
+{
     { &ddata.err, 1, DIAG_TYPE_INT, "Last Err" },
 };
 
 
-static DiagSect_T d_sect = {
+/**
+ * Section info for diagnostics in diag module.
+ */
+DiagSect_T diag_sect =
+{
     d_items,
     1,
     "Int. diag data"
 };
 
 
-/* Table of all diag sections. */
-static DiagSect_T * dtbls[1] = {
-    &d_sect,
-};
+/* Table of all diagnostic sections. */
+extern DiagSect_T * dtbls[DIAG_SECT_COUNT];
 
 
 static void gettok(char *buf, uint8_t* pos)
@@ -114,24 +155,7 @@ static void diag_parse_request(DiagReq_T *dreq)
     ddata.in[ddata.in_pos] = 0;
     
     gettok(buf, &pos);
-    if(buf[0] == 'r')
-    {
-        dreq->cmd = DiagCmd_Read;
-    }
-    else if(buf[0] == 'w')
-    {
-        dreq->cmd = DiagCmd_Write;
-    }
-    else if(buf[0] =='d')
-    {
-        dreq->cmd = DiagCmd_Describe;
-    }
-    else
-    {
-        dreq->cmd = DiagCmd_Invalid;
-        ddata.err = DiagErr_InvCmd;
-        return;
-    }
+    dreq->cmd = buf[0];
 
     gettok(buf, &pos);
     dreq->sec = (uint8_t)atoi(buf);
@@ -147,18 +171,45 @@ static void diag_parse_request(DiagReq_T *dreq)
 static void diag_handle_read(DiagReq_T *dreq)
 {
     DiagItem_T *item = diag_get_item(dreq);
+    
     if(item == NULL)
     {
         ddata.err = DiagErr_NoItem;
         return;
     }
 
-    if(item->flags & DIAG_TYPE_INT) {
-        if(item->size == 1) {
-            uint8_t val = *((uint8_t*)item->data);
-            JSON_DICT_INT("v", val);
-            JSON_SEP;
+    if(item->flags & DIAG_TYPE_INT)
+    {
+        uint32_t val;
+        
+        switch(item->size)
+        {
+        case 1:
+            val = *((uint8_t*)item->data);
+            break;
+        case 2:
+            val = *((uint16_t*)item->data);
+            break;
+        case 4:
+            val = *((uint32_t*)item->data);
+            break;
+        default:
+            ddata.err = DiagErr_Cfg;
+            return;
         }
+        
+        JSON_DICT_INT("v", val);
+        JSON_SEP;
+    }
+    else if(item->flags & DIAG_TYPE_FLOAT)
+    {
+        float val = *((float*)item->data);
+        JSON_DICT_FLOAT("v", val);
+        JSON_SEP;
+    }
+    else
+    {
+        ddata.err = DiagErr_InvalidType;
     }
 }
 
@@ -196,7 +247,11 @@ static void diag_handle_describe(DiagReq_T *dreq)
  */
 void diag_handle(void)
 {
-    DiagReq_T dreq = {DiagCmd_Invalid, 0, 0};
+    DiagReq_T dreq = {DIAG_CMD_INVALID, 0, 0};
+
+    /* We assume everything is ok. Later this will be written with the correct
+     * error code if necessary. */
+    ddata.err = DiagErr_Ok;
 
     diag_parse_request(&dreq);
 
@@ -204,10 +259,10 @@ void diag_handle(void)
     
     switch(dreq.cmd)
     {
-    case DiagCmd_Read:
+    case DIAG_CMD_READ:
         diag_handle_read(&dreq);
         break;
-    case DiagCmd_Describe:
+    case DIAG_CMD_DESCRIBE:
         diag_handle_describe(&dreq);
         break;
     default:

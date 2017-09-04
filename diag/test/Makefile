@@ -13,7 +13,7 @@ ${TARGET}: ${OBJS}
 	gcc -o $@ ${OBJS}
 
 %.o: %.c
-	gcc -I.. -c $< -o $@
+	gcc -I. -I.. -c $< -o $@
 
 clean:
 	rm -f ${OBJS}

@@ -38,6 +38,9 @@ typedef struct
 } DiagSect_T;
 
 
+extern DiagSect_T diag_sect;
+
+
 void diag_add_input_char(char c);
 void diag_add_input(char *input);
 void diag_handle(void);
