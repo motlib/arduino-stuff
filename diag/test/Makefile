@@ -2,7 +2,7 @@
 
 TARGET=diagtest
 
-SRC=$(wildcard *.c)
+SRC=$(wildcard *.c) $(wildcard ../*.c)
 OBJS=${SRC:.c=.o}
 
 $(warning objs ${OBJS})
@@ -13,7 +13,7 @@ ${TARGET}: ${OBJS}
 	gcc -o $@ ${OBJS}
 
 %.o: %.c
-	gcc -c $<
+	gcc -I.. -c $< -o $@
 
 clean:
 	rm -f ${OBJS}
