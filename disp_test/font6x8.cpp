@@ -1,5 +1,8 @@
-
 #include "font6x8.h"
+
+/* 
+ * Character pixel patterns (glyphs) for 6x8 font.
+ */
 const uint8_t font6x8_glyphs [] PROGMEM =
 {
     // ascii - 32
@@ -110,13 +113,15 @@ const uint8_t font6x8_glyphs [] PROGMEM =
     0x00, 0x7E, 0x01, 0x49, 0x55, 0x73, // ß
 };
 
-/**
+
+/*
  * Convert a character to it's index in the font table.
  */
 uint8_t font6x8_get_charcode(char c)
 {
     /* handle normal ascii character layout*/
-    if( c >= ' ' and c < '~') {
+    if((c >= ' ') && (c <= '~'))
+    {
         return c - 32;
     }
 

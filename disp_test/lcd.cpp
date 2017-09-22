@@ -1,4 +1,3 @@
-
 /*
  * This file is part of lcd library for ssd1306 oled-display.
  *
@@ -35,34 +34,37 @@
  *  Copyright 2016 Skie-Systems. All rights reserved.
  *
  */
-/* Standard ASCII 6x8 font */
 
 #include "lcd.h"
 #include "font6x8.h"
 #include <Wire.h>
 
-#define LCD_CMD 0x00
-#define LCD_DATA 0x40
+#define LCD_CMD_FRAME 0x00
+#define LCD_DATA_FRAME 0x40
 
-#define LCD_DISP_OFF	0xAE
-#define LCD_DISP_ON	0xAF
+#define LCD_CMD_DISP_OFF      0xAE
+#define LCD_CMD_DISP_ON	      0xAF
 
 
 static void lcd_send(uint8_t dc, uint8_t* buf, uint8_t len);
 
 
 /* Initialization Sequence */
-static const uint8_t ssd1306_init_sequence [] PROGMEM =
+static const uint8_t ssd1306_init_sequence[] PROGMEM =
 {
-    LCD_DISP_OFF,			// Display OFF (sleep mode)
+    // Display OFF (sleep mode)
+    LCD_CMD_DISP_OFF,
 
-    0x20, 0b00,		// Set Memory Addressing Mode
+    // Set Memory Addressing Mode
     // 00=Horizontal Addressing Mode; 01=Vertical Addressing Mode;
     // 10=Page Addressing Mode (RESET); 11=Invalid
+    0x20, 0b00,		
 
-    0xB0,			// Set Page Start Address for Page Addressing Mode, 0-7
+    // Set Page Start Address for Page Addressing Mode, 0-7
+    0xB0,			
 
-    0xC8,			// Set COM Output Scan Direction
+    // Set COM Output Scan Direction
+    0xC8,			
 
     0x00,			// --set low column address
     0x10,			// --set high column address
@@ -133,18 +135,19 @@ static const uint8_t ssd1306_init_sequence [] PROGMEM =
 //    while((TWCR & (1 << TWINT)) == 0);
 //}
 
-void lcd_init(uint8_t dispAttr) {
+void lcd_init(void)
+{
     uint8_t cmd;
         
     for(uint8_t i = 0; i < sizeof(ssd1306_init_sequence); i++)
     {
         cmd = pgm_read_byte(&ssd1306_init_sequence[i]);
-        lcd_send(LCD_CMD, &cmd, 1);
+        lcd_send(LCD_CMD_FRAME, &cmd, 1);
         //lcd_command();
     }
 
-    cmd = dispAttr;
-    lcd_send(LCD_CMD, &dispAttr, 1);
+//    cmd = dispAttr;
+//    lcd_send(LCD_CMD_FRAME, &dispAttr, 1);
     //lcd_command(dispAttr);
     
     lcd_clrscr();
@@ -192,13 +195,16 @@ static void lcd_send(uint8_t dc, uint8_t* buf, uint8_t len)
 void lcd_gotoxy(uint8_t x, uint8_t y)
 {
     uint8_t buf[] = {
-        (uint8_t)(0xb0 + y), // set page start to y
-        0x21,// set column start
+        // set page start to y
+        (uint8_t)(0xb0 + y),
+        // set column start
+        0x21,
         (uint8_t)(x * 6u),
-        0x7f // set column end to 127
+        // set column end to 127
+        0x7f 
     };
 
-    lcd_send(LCD_CMD, buf, sizeof(buf));
+    lcd_send(LCD_CMD_FRAME, buf, sizeof(buf));
 }
 
 /**
@@ -224,7 +230,7 @@ void lcd_clrscr(void) {
 
     for(uint8_t n = 0; n < nframes; ++n)
     {
-        lcd_send(LCD_DATA, buf, sizeof(buf));
+        lcd_send(LCD_DATA_FRAME, buf, sizeof(buf));
     }
     // lcd_send_i2c_stop();
     
@@ -253,7 +259,7 @@ void lcd_putc(char c)
 //        lcd_send_i2c_byte();
     }
 
-    lcd_send(LCD_DATA, buf, sizeof(buf));
+    lcd_send(LCD_DATA_FRAME, buf, sizeof(buf));
     
 //    lcd_send_i2c_stop();
 }
@@ -285,7 +291,7 @@ void lcd_invert(uint8_t invert)
         buf[0] = 0xA7;
     }
 
-    lcd_send(LCD_CMD, buf, sizeof(buf));
+    lcd_send(LCD_CMD_FRAME, buf, sizeof(buf));
 
     
     //lcd_send_i2c_start();
@@ -306,7 +312,7 @@ void lcd_set_contrast(uint8_t contrast)
 {
     uint8_t buf[2] = {0x81, contrast};
 
-    lcd_send(LCD_CMD, buf, sizeof(buf));
+    lcd_send(LCD_CMD_FRAME, buf, sizeof(buf));
     
     //lcd_send_i2c_start();
     //lcd_send_i2c_byte(0x00);    // 0x00 for command, 0x40 for data
@@ -321,12 +327,12 @@ void lcd_set_contrast(uint8_t contrast)
  */
 void lcd_set_power(uint8_t state)
 {
-    uint8_t cmd = LCD_DISP_OFF;
+    uint8_t cmd = LCD_CMD_DISP_OFF;
 
     if(state)
     {
-        cmd = LCD_DISP_ON;
+        cmd = LCD_CMD_DISP_ON;
     }
 
-    lcd_send(LCD_CMD, &cmd, 1);
+    lcd_send(LCD_CMD_FRAME, &cmd, 1);
 }

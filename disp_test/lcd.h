@@ -49,7 +49,7 @@
 #define F_I2C			400000UL // clock i2c
 
 
-void lcd_init(uint8_t dispAttr);
+void lcd_init(void);
 
 void lcd_home(void);
 
