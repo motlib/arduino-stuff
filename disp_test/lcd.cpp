@@ -85,55 +85,6 @@ static const uint8_t ssd1306_init_sequence[] PROGMEM =
     0x8D, 0x14,		// Set DC-DC enable
 };
 
-//#if defined(__AVR_ATmega328P__) || defined(__AVR_ATmega168P__) || defined(__AVR_ATmega88P__) || defined(__AVR_ATmega48P__)
-//
-//	#if PSC_I2C != 1 && PSC_I2C != 4 && PSC_I2C != 16 && PSC_I2C != 64
-//		#error "Wrong prescaler for TWI !"
-//	#elif SET_TWBR < 0 || SET_TWBR > 255
-//		#error "TWBR out of range, change PSC_I2C or F_I2C !"
-//	#endif
-//
-//void i2c_init(void)
-//{
-//    LCD_PORT |= (1 << SDA_Pin)|(1 << SDC_Pin);        // experimental, pullups for 12c_bus
-//    LCD_PORT_DDR |= (1 << SDA_Pin)|(1 << SDC_Pin);
-//    // set clock
-//    switch (PSC_I2C) {
-//        case 4:
-//            TWSR = 0x1;
-//            break;
-//        case 16:
-//            TWSR = 0x2;
-//            break;
-//        case 64:
-//            TWSR = 0x3;
-//            break;
-//        default:
-//            TWSR = 0x00;
-//            break;
-//    }
-//    TWBR = (uint8_t)SET_TWBR;
-//    // enable
-//    TWCR = (1 << TWEN);
-//}
-//void lcd_send_i2c_start(void){
-//    // i2c start
-//    TWCR = (1 << TWINT)|(1 << TWSTA)|(1 << TWEN);
-//    while((TWCR & (1 << TWINT)) == 0);
-//    // send adress
-//    TWDR = LCD_I2C_ADDR;
-//    TWCR = (1 << TWINT)|( 1 << TWEN);
-//    while((TWCR & (1 << TWINT)) == 0);
-//}
-//void lcd_send_i2c_stop(void){
-//    // i2c stop
-//    TWCR = (1 << TWINT)|(1 << TWSTO)|(1 << TWEN);
-//}
-//void lcd_send_i2c_byte(uint8_t byte){
-//    TWDR = byte;
-//    TWCR = (1 << TWINT)|( 1 << TWEN);
-//    while((TWCR & (1 << TWINT)) == 0);
-//}
 
 void lcd_init(void)
 {
@@ -143,13 +94,8 @@ void lcd_init(void)
     {
         cmd = pgm_read_byte(&ssd1306_init_sequence[i]);
         lcd_send(LCD_CMD_FRAME, &cmd, 1);
-        //lcd_command();
     }
 
-//    cmd = dispAttr;
-//    lcd_send(LCD_CMD_FRAME, &dispAttr, 1);
-    //lcd_command(dispAttr);
-    
     lcd_clrscr();
 }
 
@@ -175,23 +121,6 @@ static void lcd_send(uint8_t dc, uint8_t* buf, uint8_t len)
 }
 
 
-//void lcd_command(uint8_t cmd)
-//{
-//    lcd_send_i2c_start();
-//    lcd_send_i2c_byte(0x00);    // 0x00 for command, 0x40 for data
-//    lcd_send_i2c_byte(cmd);
-//    lcd_send_i2c_stop();
-//}
-//
-//void lcd_data(uint8_t data)
-//{
-//    lcd_send_i2c_start();
-//    lcd_send_i2c_byte(0x40);    // 0x00 for command, 0x40 for data
-//    lcd_send_i2c_byte(data);
-//    lcd_send_i2c_stop();
-//}
-
-
 void lcd_gotoxy(uint8_t x, uint8_t y)
 {
     uint8_t buf[] = {
@@ -209,34 +138,26 @@ void lcd_gotoxy(uint8_t x, uint8_t y)
 
 /**
  * Clear display contents. 
+ *
+ * Send 64 frames with each 16 byte of data (plus 1 command byte) to clear
+ * memory.
  */
 void lcd_clrscr(void) {
-    /* Send 64 frames with each 16 byte of data (plus 1 command byte) to clear
-     * memory */
     uint8_t nframes = 64;
     uint8_t buf[16] = {0};
     
     lcd_home();
     
-    //lcd_send_i2c_start();
-    //lcd_send_i2c_byte(0x40);    // 0x00 for command, 0x40 for data
-
-    //FIXME:This will fail because of write buffer overflow in wire lib. 
-    //for(uint16_t i = 0; i < 128 * 8 ; i++)
-    //{
-    //    Wire.write(0x00);
-        //lcd_send_i2c_byte(0);    // clear display while printing space
-    //}
-
     for(uint8_t n = 0; n < nframes; ++n)
     {
         lcd_send(LCD_DATA_FRAME, buf, sizeof(buf));
     }
-    // lcd_send_i2c_stop();
     
     lcd_home();
 }
 
+
+#define GLYPH_WIDTH 5
 
 /**
  * Write a single character to the current cursor position.
@@ -244,24 +165,20 @@ void lcd_clrscr(void) {
 void lcd_putc(char c)
 {
     uint8_t idx;
-    uint8_t buf[6];
+    uint8_t buf[GLYPH_WIDTH + 1] = {0};
 
     idx = font6x8_get_charcode(c);
 
-//    lcd_send_i2c_start();
-//    lcd_send_i2c_byte(0x40);    // 0x00 for command, 0x40 for data
-
-    
-    // print font to ram, print 6 columns
-    for (uint8_t i = 0; i < 6; i++)
+    /* this is the empty pixel column to separate characters. */
+    for (uint8_t i = 0; i < GLYPH_WIDTH; i++)
     {
-        buf[i] = pgm_read_byte(&font6x8_glyphs[idx * 6 + i]);
-//        lcd_send_i2c_byte();
+        buf[i] = pgm_read_byte(&font6x8_glyphs[idx * GLYPH_WIDTH + i]);
     }
-
-    lcd_send(LCD_DATA_FRAME, buf, sizeof(buf));
     
-//    lcd_send_i2c_stop();
+    /* separator to next charater */
+    buf[GLYPH_WIDTH] = 0x00;
+    
+    lcd_send(LCD_DATA_FRAME, buf, sizeof(buf));
 }
 
 void lcd_puts(const char* s)
