@@ -45,6 +45,9 @@
 #define LCD_CMD_DISP_OFF      0xAE
 #define LCD_CMD_DISP_ON	      0xAF
 
+#define LCD_CMD_DISP_NORMAL   0xA6
+#define LCD_CMD_DISP_INVERTED 0xA7
+
 
 static void lcd_send(uint8_t dc, uint8_t* buf, uint8_t len);
 
@@ -201,28 +204,14 @@ void lcd_puts_p(const char* progmem_s)
 
 void lcd_invert(uint8_t invert)
 {
-    uint8_t buf[1] = {0xA6};
+    uint8_t cmd = LCD_CMD_DISP_NORMAL;
 
     if(invert)
     {
-        buf[0] = 0xA7;
+        cmd = LCD_CMD_DISP_INVERTED;;
     }
 
-    lcd_send(LCD_CMD_FRAME, buf, sizeof(buf));
-
-    
-    //lcd_send_i2c_start();
-    //lcd_send_i2c_byte(0x00);    // 0x00 for command, 0x40 for data
-    //if(invert) {
-    //{
-    //    lcd_send_i2c_byte(0xA7);// set display inverted mode
-    //}
-    //else
-    //{
-    //    lcd_send_i2c_byte(0xA6);// set display normal mode
-    //}
-    //
-    //lcd_send_i2c_stop();
+    lcd_send(LCD_CMD_FRAME, cmd, 1);
 }
 
 void lcd_set_contrast(uint8_t contrast)
@@ -230,12 +219,6 @@ void lcd_set_contrast(uint8_t contrast)
     uint8_t buf[2] = {0x81, contrast};
 
     lcd_send(LCD_CMD_FRAME, buf, sizeof(buf));
-    
-    //lcd_send_i2c_start();
-    //lcd_send_i2c_byte(0x00);    // 0x00 for command, 0x40 for data
-    //lcd_send_i2c_byte(0x81);    // set display contrast
-    //lcd_send_i2c_byte(contrast);// to contrast
-    //lcd_send_i2c_stop();
 }
 
 
